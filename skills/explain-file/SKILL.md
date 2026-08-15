@@ -5,7 +5,7 @@ description: Explain a file in detail, line by line (skipping import/require sta
 
 # /explain-file
 
-Produces a line-by-line explanation of a source file and writes it to a `.md` file in the same folder (same filename, extension swapped to `.md`).
+Produces a line-by-line explanation of a source file and writes it to a `.$.md` file in the same folder (same filename, extension swapped to `.$.md`). The `.$.md` suffix marks it as a generated artifact, so it's easy to exclude from git with a single `**/*.$.md` gitignore pattern.
 
 ## Usage
 
@@ -21,7 +21,7 @@ Produces a line-by-line explanation of a source file and writes it to a `.md` fi
 This must work across whichever IDE/editor integration is active (VS Code, JetBrains, or any other) — never hardcode one editor's tool names.
 
 - If a path was given as an argument, use it (resolve relative to the current working directory) and skip the IDE lookup below.
-- Otherwise, first check this conversation for a `<system-reminder>` or `<ide_selection>`/active-file tag naming the file currently open in the editor — the harness delivers this automatically for whichever IDE extension is connected (VS Code, JetBrains, etc.). Treat it as authoritative and prefer the **most recent** one if several appear.
+- Otherwise, first check this conversation for a push-based editor-event tag naming the relevant file — the harness injects these automatically for whichever IDE extension is connected (VS Code, JetBrains, etc.), you never call a tool to get them. Look for, in order of preference: `<ide_selection>` (a selection implies that file is the target), then `<ide_opened_file>` (fires when a file is opened, even with no selection), then any other `<system-reminder>` naming an active/open file. Treat the **most recent** such tag in the conversation as authoritative.
 - If no such tag exists, look for a connected IDE/editor MCP server generically — do not assume a specific vendor. Run `ToolSearch` with a broad query like `"ide editor open file"` and inspect whatever comes back (e.g. a JetBrains `mcp__idea_sse_mcp__*` server, a VS Code server, or another editor's server). Then:
   1. Call whatever tool reports the active editor's open file(s) (pass a project-path parameter as the current working directory if the tool wants one) to get the active file path.
   2. **If it returns a usable file path** — resolve it against the project root to an absolute path and use that as the target file (handle it exactly like an explicit `<path>` argument: Read it with the Read tool in the next step).
@@ -49,9 +49,9 @@ Go through the file top to bottom, exactly once. Don't reorder, group by topic, 
 
 ### 4. Write the markdown file
 
-Output path: same directory as the source file, same base filename, with the original extension replaced by `.md`. If the filename has multiple suffixes (e.g. `foo.test.js`), replace only the last one (→ `foo.test.md`). If a file with that name already exists, overwrite it — this is a generated artifact, not hand-authored content.
+Output path: same directory as the source file, same base filename, with the original extension replaced by `.$.md`. If the filename has multiple suffixes (e.g. `foo.test.js`), replace only the last one (→ `foo.test.$.md`). If a file with that name already exists, overwrite it — this is a generated artifact, not hand-authored content.
 
-If the target was resolved from text content only (no on-disk path, per step 1.3), use the filename/location the user gave you when asked, with the extension replaced by `.md` the same way.
+If the target was resolved from text content only (no on-disk path, per step 1.3), use the filename/location the user gave you when asked, with the extension replaced by `.$.md` the same way.
 
 Structure the markdown as:
 
