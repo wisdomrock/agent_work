@@ -18,10 +18,12 @@ Explains a selection of lines from the editor in plain terms, grounded in the su
 
 ### 1. Resolve the selection
 
-- First check this conversation for a `<system-reminder>` of the form "The user selected the lines `<start>` to `<end>` from `<path>`" (often followed by the literal selected text). This is the harness's own selection signal and should be treated as authoritative and current — prefer the **most recent** one if several appear.
-- If no such reminder exists and no explicit `<path>#L..-L..` argument was given:
-  1. Try the IDE MCP server for the active file. In this environment that's the JetBrains server (`mcp__idea_sse_mcp__*`); if deferred, load it via `ToolSearch` with `select:mcp__idea_sse_mcp__get_all_open_file_paths,mcp__idea_sse_mcp__get_file_text_by_path`. These tools generally expose the *open file*, not the selection range itself — if no selection range is obtainable this way, ask the user to paste the selected code or state the line range rather than guessing.
-  2. If IDE tools are unavailable or return nothing usable, ask the user which lines to explain.
+This must work across whichever IDE/editor integration is active (VS Code, JetBrains, or any other) — never hardcode one editor's tool names.
+
+- First check this conversation for a `<system-reminder>` or `<ide_selection>` tag of the form "The user selected the lines `<start>` to `<end>` from `<path>`" (often followed by the literal selected text). This is the harness's own cross-editor selection signal, delivered automatically for whichever IDE extension is connected (VS Code, JetBrains, etc.) — treat it as authoritative and current, and prefer the **most recent** one if several appear.
+- If no such tag exists and no explicit `<path>#L..-L..` argument was given:
+  1. Look for a connected IDE/editor MCP server generically — do not assume a specific vendor. Run `ToolSearch` with a broad query like `"ide editor open file selection"` and inspect whatever comes back (e.g. a JetBrains `mcp__idea_sse_mcp__*` server, a VS Code server, or another editor's server). If something matching "current open file" / "selection" turns up, use it. These tools often expose the *open file* but not the exact selection range — if no selection range is obtainable this way, don't guess it.
+  2. If no IDE tools are found, or what's found doesn't yield a selection range, ask the user to paste the selected code or state the file + line range.
 - Once you have a file path + line range, read the file with the Read tool (use `offset`/`limit` if the file is large) to get line-numbered content and confirm the exact text of the selection.
 
 ### 2. Gather enough surrounding context

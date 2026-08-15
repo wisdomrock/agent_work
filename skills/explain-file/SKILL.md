@@ -18,12 +18,15 @@ Produces a line-by-line explanation of a source file and writes it to a `.md` fi
 
 ### 1. Resolve the target file
 
+This must work across whichever IDE/editor integration is active (VS Code, JetBrains, or any other) — never hardcode one editor's tool names.
+
 - If a path was given as an argument, use it (resolve relative to the current working directory) and skip the IDE lookup below.
-- Otherwise, **always** ask the IDE's MCP server which file is open in the current editor before falling back to anything else. In this environment that's the JetBrains IDE MCP server (`mcp__idea_sse_mcp__*`); if its tools are deferred, load them first via `ToolSearch` with `select:mcp__idea_sse_mcp__get_all_open_file_paths,mcp__idea_sse_mcp__get_file_text_by_path`. Then:
-  1. Call `get_all_open_file_paths` (pass `projectPath` as the current working directory if known) to get the active editor's file path.
+- Otherwise, first check this conversation for a `<system-reminder>` or `<ide_selection>`/active-file tag naming the file currently open in the editor — the harness delivers this automatically for whichever IDE extension is connected (VS Code, JetBrains, etc.). Treat it as authoritative and prefer the **most recent** one if several appear.
+- If no such tag exists, look for a connected IDE/editor MCP server generically — do not assume a specific vendor. Run `ToolSearch` with a broad query like `"ide editor open file"` and inspect whatever comes back (e.g. a JetBrains `mcp__idea_sse_mcp__*` server, a VS Code server, or another editor's server). Then:
+  1. Call whatever tool reports the active editor's open file(s) (pass a project-path parameter as the current working directory if the tool wants one) to get the active file path.
   2. **If it returns a usable file path** — resolve it against the project root to an absolute path and use that as the target file (handle it exactly like an explicit `<path>` argument: Read it with the Read tool in the next step).
-  3. **Else, if no path comes back but the server can supply the full text content** (e.g. via `get_file_text_by_path`, or an unsaved/untitled buffer) — take that returned text as the file content directly and skip the Read tool for this file. Since there's no on-disk path in this case, ask the user for a filename/output location before writing the explanation (step 4 needs somewhere to put the `.md` file).
-  4. **If the MCP call fails, the server/tools aren't available, or it returns nothing usable** — fall back to the file most recently opened/edited/discussed in this conversation. If that's still ambiguous or nothing qualifies, ask the user which file to explain — do not guess silently.
+  3. **Else, if no path comes back but the tool can supply the full text content directly** (e.g. an unsaved/untitled buffer) — take that returned text as the file content directly and skip the Read tool for this file. Since there's no on-disk path in this case, ask the user for a filename/output location before writing the explanation (step 4 needs somewhere to put the `.md` file).
+  4. **If no IDE tools are found, the call fails, or it returns nothing usable** — fall back to the file most recently opened/edited/discussed in this conversation. If that's still ambiguous or nothing qualifies, ask the user which file to explain — do not guess silently.
 - Once resolved via path, read the file with the Read tool before doing anything else (skip this if step 3 already supplied the text directly).
 
 ### 2. Identify and skip the import block
