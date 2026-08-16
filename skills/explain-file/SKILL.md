@@ -12,7 +12,11 @@ Produces a line-by-line explanation of a source file and writes it to a `.$.md` 
 ```
 /explain-file                 # explain the file currently under discussion / open in the editor
 /explain-file <path>          # explain a specific file
+/explain-file --force         # regenerate even if a .$.md already exists for the target
+/explain-file <path> --force  # same, for a specific file
 ```
+
+If a `.$.md` file already exists for the resolved target and the invocation contains no force signal, the skill reports an error and stops instead of regenerating (see step 2).
 
 ## What You Must Do When Invoked
 
@@ -29,11 +33,19 @@ This must work across whichever IDE/editor integration is active (VS Code, JetBr
   4. **If no IDE tools are found, the call fails, or it returns nothing usable** — fall back to the file most recently opened/edited/discussed in this conversation. If that's still ambiguous or nothing qualifies, ask the user which file to explain — do not guess silently.
 - Once resolved via path, read the file with the Read tool before doing anything else (skip this if step 3 already supplied the text directly).
 
-### 2. Identify and skip the import block
+### 2. Guard against unexplainable targets
+
+Before proceeding, check the resolved file against both of these — stop and report an error to the user instead of explaining it if either applies. Do not silently pick a different file or proceed anyway.
+
+- **This skill's own output:** the filename matches `*.$.md`. This is a generated artifact (see step 5), not a source file — name the file and suggest the likely intended source (same path with `.$.md` stripped down to the original extension, if it exists nearby).
+- **Binary content:** the file is not text. Judge this from the Read tool's result (e.g. it errors, refuses, or returns non-text/garbled content instead of line-numbered text — images, compiled artifacts, archives, etc. all surface this way) or an unambiguous binary extension (`.png`, `.jpg`, `.pdf`, `.zip`, `.exe`, `.pyc`, `.so`, `.dll`, `.db`, and similar). Report that the file is binary and can't be explained line by line — don't attempt to paraphrase raw bytes.
+- **Explanation already exists:** compute the would-be output path (same rule as step 5: same directory/basename, extension replaced by `.$.md`) and check whether it already exists. If it does, only proceed when the user's invocation carries an explicit force signal — a flag (`--force`, `-f`) or wording in the same message like "force", "regenerate", "re-generate", "refresh", "redo", or "overwrite" (applied to this file or to explain-file generally). Absent that signal, stop and report an error: name the existing `.$.md` path and tell the user to re-invoke with `--force` (or equivalent wording) if they want it regenerated. Do not silently skip this check just because the file looks stale or the source changed — staleness alone is not a force signal.
+
+### 3. Identify and skip the import block
 
 Detect the file's leading import/include/using/package statements (exact syntax depends on language: `import`/`from ... import` in Python, `import`/`require` in JS/TS, `#include` in C/C++, `using` in C#, `use` in Rust, `package`/`import` in Go/Java, etc.). These lines are excluded from the line-by-line commentary entirely — do not quote or explain them individually. It's fine to mention in the overview that the file has N imports and briefly name the notable dependencies, but nothing more.
 
-### 3. Walk the rest of the file in order
+### 4. Walk the rest of the file in order
 
 For every remaining line (or a tightly-coupled multi-line statement — e.g. a function signature spanning several lines, a multi-line object literal — treated as one unit), write an explanation covering:
 
@@ -47,9 +59,9 @@ Go through the file top to bottom, exactly once. Don't reorder, group by topic, 
 
 **Notebooks (`.ipynb`):** treat each cell as the unit of traversal. If a cell is empty (no source at all, or source that is entirely whitespace) skip it completely — do not create a section, heading, or line-number entry for it, and don't mention it in the overview. This applies regardless of cell type (code or markdown).
 
-### 4. Write the markdown file
+### 5. Write the markdown file
 
-Output path: same directory as the source file, same base filename, with the original extension replaced by `.$.md`. If the filename has multiple suffixes (e.g. `foo.test.js`), replace only the last one (→ `foo.test.$.md`). If a file with that name already exists, overwrite it — this is a generated artifact, not hand-authored content.
+Output path: same directory as the source file, same base filename, with the original extension replaced by `.$.md`. If the filename has multiple suffixes (e.g. `foo.test.js`), replace only the last one (→ `foo.test.$.md`). By the time you reach this step, an existing file at that path only happens if the user gave an explicit force signal (checked in step 2) — go ahead and overwrite it, since it's a generated artifact, not hand-authored content.
 
 If the target was resolved from text content only (no on-disk path, per step 1.3), use the filename/location the user gave you when asked, with the extension replaced by `.$.md` the same way.
 
@@ -74,6 +86,6 @@ Structure the markdown as:
 
 Use the file's actual line numbers (from the Read tool's line-numbered output) so the reader can cross-reference. Use the correct fenced-code-block language tag for the file type.
 
-### 5. Report back
+### 6. Report back
 
 After writing the file, tell the user the output path and how many line-groups/sections it covers. Do not paste the full markdown content into the chat — the file itself is the deliverable. Do not modify the original source file.
