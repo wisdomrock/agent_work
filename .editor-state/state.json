@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-08-21T02:17:05.897Z",
-  "updatedAtMs": 1787278625897,
+  "updatedAt": "2026-08-21T02:17:47.626Z",
+  "updatedAtMs": 1787278667626,
   "reason": "windowFocus",
   "extension": {
     "name": "editor-state-mcp",
@@ -39,6 +39,11 @@
   "openTabs": [],
   "recentFiles": [
     {
+      "path": "d:\\MyProjects\\AI\\agent_work\\.editor-state\\state.json",
+      "relativePath": ".editor-state/state.json",
+      "lastActiveAtMs": 1787278645431
+    },
+    {
       "path": "d:\\MyProjects\\AI\\agent_work\\.gitignore",
       "relativePath": ".gitignore",
       "lastActiveAtMs": 1787278586308
@@ -47,11 +52,6 @@
       "path": "d:\\MyProjects\\AI\\agent_work\\.claude-plugin\\plugin.json",
       "relativePath": ".claude-plugin/plugin.json",
       "lastActiveAtMs": 1787278577591
-    },
-    {
-      "path": "d:\\MyProjects\\AI\\agent_work\\.editor-state\\state.json",
-      "relativePath": ".editor-state/state.json",
-      "lastActiveAtMs": 1787278575624
     },
     {
       "path": "d:\\MyProjects\\AI\\agent_work\\.claude-plugin\\marketplace.json",
