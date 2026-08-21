@@ -1,2 +1,3 @@
 dist
 .editor-state
+**/.editor-state.json
