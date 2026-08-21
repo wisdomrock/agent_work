@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
-  "updatedAt": "2026-08-21T02:04:02.192Z",
-  "updatedAtMs": 1787277842192,
-  "reason": "activeEditorChange",
+  "updatedAt": "2026-08-21T02:08:37.107Z",
+  "updatedAtMs": 1787278117107,
+  "reason": "windowFocus",
   "extension": {
     "name": "editor-state-mcp",
     "version": "0.1.0"

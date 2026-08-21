@@ -8,7 +8,8 @@ $root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $manifestPath = Join-Path $root ".claude-plugin/plugin.json"
 $skillPaths = @(
     (Join-Path $root "skills/explain-file/SKILL.md"),
-    (Join-Path $root "skills/explain-selection/SKILL.md")
+    (Join-Path $root "skills/explain-selection/SKILL.md"),
+    (Join-Path $root "README.md")
 )
 
 if (-not (Test-Path -LiteralPath $manifestPath -PathType Leaf)) {
@@ -34,6 +35,7 @@ try {
     New-Item -ItemType Directory -Path $stagingPath -Force | Out-Null
     Copy-Item -LiteralPath (Join-Path $root ".claude-plugin") -Destination $stagingPath -Recurse
     Copy-Item -LiteralPath (Join-Path $root "skills") -Destination $stagingPath -Recurse
+    Copy-Item -LiteralPath (Join-Path $root "README.md") -Destination $stagingPath
 
     New-Item -ItemType Directory -Path $outputPath -Force | Out-Null
     if (Test-Path -LiteralPath $zipPath) {

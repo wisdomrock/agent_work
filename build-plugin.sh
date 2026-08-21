@@ -10,9 +10,9 @@ if [[ ! -f "$MANIFEST" ]]; then
   exit 1
 fi
 
-for skill in "$ROOT_DIR/skills/explain-file/SKILL.md" "$ROOT_DIR/skills/explain-selection/SKILL.md"; do
-  if [[ ! -f "$skill" ]]; then
-    echo "Missing skill file: $skill" >&2
+for required_file in "$ROOT_DIR/skills/explain-file/SKILL.md" "$ROOT_DIR/skills/explain-selection/SKILL.md" "$ROOT_DIR/README.md"; do
+  if [[ ! -f "$required_file" ]]; then
+    echo "Missing plugin file: $required_file" >&2
     exit 1
   fi
 done
@@ -43,6 +43,7 @@ trap 'rm -rf "$STAGING_PATH"' EXIT
 mkdir -p "$OUTPUT_PATH"
 cp -R "$ROOT_DIR/.claude-plugin" "$STAGING_PATH/"
 cp -R "$ROOT_DIR/skills" "$STAGING_PATH/"
+cp "$ROOT_DIR/README.md" "$STAGING_PATH/"
 rm -f "$ZIP_PATH"
 
 (cd "$STAGING_PATH" && zip -qr "$ZIP_PATH" .)
