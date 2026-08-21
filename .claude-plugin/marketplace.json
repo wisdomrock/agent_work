@@ -1,0 +1,21 @@
+{
+  "name": "wisdom-rock-marketplace",
+  "owner": {
+    "name": "Wisdom Rock"
+  },
+  "metadata": {
+    "description": "Claude Code plugins by Wisdom Rock."
+  },
+  "plugins": [
+    {
+      "name": "explain-tools",
+      "source": ".",
+      "description": "Explain complete files or selected code in context.",
+      "version": "1.0.0",
+      "author": {
+        "name": "Wisdom Rock"
+      },
+      "category": "developer-tools"
+    }
+  ]
+}
