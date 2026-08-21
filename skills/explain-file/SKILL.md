@@ -22,16 +22,42 @@ If a `.$.md` file already exists for the resolved target and the invocation cont
 
 ### 1. Resolve the target file
 
-This must work across whichever IDE/editor integration is active (VS Code, JetBrains, or any other) — never hardcode one editor's tool names.
+This must work across whichever IDE/editor integration is active (VS Code, JetBrains, or any other) — never hardcode one editor's tool names. Resolve in this order, stopping at the first tier that yields a usable target:
 
-- If a path was given as an argument, use it (resolve relative to the current working directory) and skip the IDE lookup below.
-- Otherwise, first check this conversation for a push-based editor-event tag naming the relevant file — the harness injects these automatically for whichever IDE extension is connected (VS Code, JetBrains, etc.), you never call a tool to get them. Look for, in order of preference: `<ide_selection>` (a selection implies that file is the target), then `<ide_opened_file>` (fires when a file is opened, even with no selection), then any other `<system-reminder>` naming an active/open file. Treat the **most recent** such tag in the conversation as authoritative.
-- If no such tag exists, look for a connected IDE/editor MCP server generically — do not assume a specific vendor. Run `ToolSearch` with a broad query like `"ide editor open file"` and inspect whatever comes back (e.g. a JetBrains `mcp__idea_sse_mcp__*` server, a VS Code server, or another editor's server). Then:
+> **Never use IDE-injected harness tags.** Ignore `<ide_opened_file>`, `<ide_selection>` and any other editor-event tag the harness attaches to a message — including ones inside `<system-reminder>` blocks, and including ones visible right now in this conversation. They are one-shot *change* events: they fire when the file/selection changes, ride along with the next message only, and are **not** resent while that file stays open. A skill that reads them resolves to a different file depending on which message it happened to be invoked from, which is precisely the unreliability the tiers below exist to eliminate. Do not use them as a target, as a hint, or as a tiebreaker.
+
+**Tier 0 — explicit argument.** If a path was given as an argument, use it (resolve relative to the current working directory) and skip everything below.
+
+**Tier 1 — the editor state file.** An editor extension may continuously mirror live editor state to a JSON file. This is the preferred source: always available, no tool call, no session-start ordering problem.
+
+  1. Read `.editor-state/state.json` relative to the current working directory. If it isn't there and the cwd is inside a git repo, try the repo root (`git rev-parse --show-toplevel`). Missing in both → Tier 2. Do not treat "missing" as an error; most projects won't have it.
+  2. **Check `schemaVersion`.** If it's greater than `1`, do not guess at the fields — fall through to Tier 2 and say why.
+  3. **Confirm it's about this project.** The cwd should be inside one of `workspace.folders`. If it isn't, the file belongs to a different window or project — ignore it and fall through.
+  4. **Check freshness** using `updatedAtMs` (epoch ms; get the current time with `date +%s%3N` if you need it precisely):
+     - **under 60s** — use it silently.
+     - **60s to 30min** — use it, but name the file you picked and its age: *"explaining `session1/Hello.py`, the file open ~4 min ago"*.
+     - **over 30min** — treat it as a hint only. Confirm the target with the user before writing anything. If `window.heartbeatPath` is present, Read that file too: a heartbeat older than ~90s means the editor is no longer running, so say that rather than implying live state.
+  5. **Pick the target.**
+     - `activeEditor.path` (absolute) or `activeEditor.relativePath` → this is the target.
+     - `activeEditor` null, or its `scheme` is not `file` (e.g. an untitled buffer, which has no on-disk path) → fall back to `recentFiles[0]`, and say which file you picked and why.
+     - Neither available → Tier 2.
+  6. Note `activeEditor.source` if present: `carriedForward` means the editor had lost focus and this is the last known file rather than a live reading. Still usable — just don't present it as certain.
+  7. If `window.focused` is `false`, the user may be working in a different window than the one that wrote this. Use it, but name the file you chose so a wrong guess is obvious immediately.
+
+**Tier 2 — ask a connected editor MCP server.** If Tiers 0–1 found nothing, consult the **Known MCP capability gaps** list below — it would name any specific *capability* a specific *server family* is known to lack, so you skip re-searching for exactly that. An entry never means skip the whole server: a server family missing one capability may still expose another worth calling. This capability ("report the active open file") is currently supported by every known editor MCP server family (see the list below), so unless a new gap has been recorded, always try it — regardless of transport (SSE, stdio, streaming HTTP) or exact tool-name prefix, which vary by install and shouldn't be hardcoded. Run `ToolSearch` with a broad query like `"ide editor open file"` and inspect whatever comes back (e.g. a JetBrains `mcp__idea-sse-mcp__*`-style server for PyCharm/IntelliJ/WebStorm, a VS Code server, or another editor's server):
   1. Call whatever tool reports the active editor's open file(s) (pass a project-path parameter as the current working directory if the tool wants one) to get the active file path.
   2. **If it returns a usable file path** — resolve it against the project root to an absolute path and use that as the target file (handle it exactly like an explicit `<path>` argument: Read it with the Read tool in the next step).
   3. **Else, if no path comes back but the tool can supply the full text content directly** (e.g. an unsaved/untitled buffer) — take that returned text as the file content directly and skip the Read tool for this file. Since there's no on-disk path in this case, ask the user for a filename/output location before writing the explanation (step 4 needs somewhere to put the `.md` file).
-  4. **If no IDE tools are found, the call fails, or it returns nothing usable** — fall back to the file most recently opened/edited/discussed in this conversation. If that's still ambiguous or nothing qualifies, ask the user which file to explain — do not guess silently.
-- Once resolved via path, read the file with the Read tool before doing anything else (skip this if step 3 already supplied the text directly).
+  4. **If you confirm a specific server family has no tool that reports the active file at all**, record that precise capability gap under **Known MCP capability gaps** below (edit this file) — don't record a blanket "skip this server" entry, since the same server may still be useful to `/explain-selection` or other capabilities.
+
+**Tier 3 — ask.** If Tiers 0–2 found nothing:
+  1. You may still infer a target from non-tag evidence: the file most recently read, edited or discussed **in your own tool calls** this session. Do not mine the conversation for IDE tags to do this.
+  2. If that's ambiguous or nothing qualifies, ask the user which file to explain — do not guess silently.
+- Once resolved via path, read the file with the Read tool before doing anything else (skip this if Tier 2 step 3 already supplied the text directly).
+
+**Known MCP capability gaps** (checked in Tier 2 — skip re-searching for these specific capabilities; add a line whenever you confirm a new one, and never write a blanket "skip this server" entry):
+- **Claude Code's built-in `ide` server** (`mcp__ide__*`) — confirmed 2026-08-16: exposes only `getDiagnostics` and `executeCode`. **No** active-file or selection tool of any kind. Don't spend a `ToolSearch` on it.
+- _(JetBrains: the "list open files" tool, e.g. `get_all_open_file_paths`, works for this skill's needs on PyCharm/IntelliJ regardless of SSE/stream transport — not a gap. A gap here would be a server family whose active-file tool is missing or non-functional.)_
 
 ### 2. Guard against unexplainable targets
 

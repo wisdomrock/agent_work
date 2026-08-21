@@ -1,0 +1,8 @@
+{
+  "name": "explain-tools",
+  "version": "1.0.0",
+  "description": "Claude Code skills for explaining complete files and selected code.",
+  "author": {
+    "name": "Wisdom Rock"
+  }
+}
